@@ -57,32 +57,23 @@ void Base64Decode(const char *b64message, char *buffer, size_t *length) {
 
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
     *length = BIO_read(bio, buffer, strlen(b64message));
-    buffer[*length] = '\0';
+    if (*length <= 0) {
+        printf("Erro na decodificação Base64: %s\n", b64message);
+        buffer[0] = '\0';
+        *length = 0;
+    } else {
+        buffer[*length] = '\0';
+    }
 
     BIO_free_all(bio);
-}
-
-void salvar_resultados(const char *arquivo, char resultados[][TAM_COD + 1], int qtd) {
-    FILE *file = fopen(arquivo, "w");
-    if (file == NULL) {
-        printf("Erro ao criar o arquivo %s\n", arquivo);
-        exit(1);
-    }
-    for (int i = 0; i < qtd; i++) {
-        fprintf(file, "%s\n", resultados[i]);
-    }
-    fclose(file);
 }
 
 int main() {
     char palavras[QTD_PALAVRAS][TAM_PALAVRA + 1];
     char senhas_codificadas[QTD_SENHAS][TAM_COD + 1];
-    char senhas_quebradas[QTD_SENHAS][TAM_COD + 1];
-    char senhas_nao_quebradas[QTD_SENHAS][TAM_COD + 1];
     char usuario[TAM_PALAVRA + 1], senha_codificada[TAM_COD + 1], senha_decodificada[TAM_COD + 1];
     char senha_pura[TAM_COD + 1];
     size_t length;
-    int qtd_quebradas = 0, qtd_nao_quebradas = 0;
 
     carregar_palavras(palavras, "palavras.txt");
     carregar_codificadas(senhas_codificadas, "usuarios_senhascodificadas.txt");
@@ -92,36 +83,34 @@ int main() {
 
         // Decodificar a senha
         Base64Decode(senha_codificada, senha_decodificada, &length);
+        if (length == 0) {
+            printf("Senha decodificada inválida para %s.\n", usuario);
+            continue;
+        }
+
         printf("Senha decodificada para %s: %s\n", usuario, senha_decodificada);
 
         // Gerar combinações e comparar
-        int encontrada = 0;
-        for (int p1 = 0; p1 < QTD_PALAVRAS && !encontrada; p1++) {
-            for (int p2 = -1; p2 < QTD_PALAVRAS && !encontrada; p2++) {
+        for (int p1 = 0; p1 < QTD_PALAVRAS; p1++) {
+            for (int p2 = -1; p2 < QTD_PALAVRAS; p2++) {
                 if (p2 == -1) {
                     sprintf(senha_pura, "%s", palavras[p1]);
                 } else {
                     sprintf(senha_pura, "%s %s", palavras[p1], palavras[p2]);
                 }
 
-                // Imprime a combinação sendo comparada
+                // Verificar se a combinação é válida
+                if (strlen(senha_pura) == 0) continue;
+
                 printf("Comparando: %s\n", senha_pura);
 
                 if (strcmp(senha_decodificada, senha_pura) == 0) {
-                    sprintf(senhas_quebradas[qtd_quebradas++], "%s:%s", usuario, senha_pura);
-                    encontrada = 1;
+                    printf("Senha quebrada para %s: %s\n", usuario, senha_pura);
+                    break;
                 }
             }
         }
-
-        if (!encontrada) {
-            sprintf(senhas_nao_quebradas[qtd_nao_quebradas++], "%s:%s", usuario, senha_codificada);
-        }
     }
-
-    // Salvar resultados
-    salvar_resultados("senhas_quebradas.txt", senhas_quebradas, qtd_quebradas);
-    salvar_resultados("senhas_nao_quebradas.txt", senhas_nao_quebradas, qtd_nao_quebradas);
 
     return 0;
 }
