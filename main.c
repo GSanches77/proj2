@@ -92,6 +92,7 @@ int main() {
 
         // Decodificar a senha
         Base64Decode(senha_codificada, senha_decodificada, &length);
+        printf("Senha decodificada para %s: %s\n", usuario, senha_decodificada);
 
         // Gerar combinações e comparar
         int encontrada = 0;
@@ -102,6 +103,9 @@ int main() {
                 } else {
                     sprintf(senha_pura, "%s %s", palavras[p1], palavras[p2]);
                 }
+
+                // Imprime a combinação sendo comparada
+                printf("Comparando: %s\n", senha_pura);
 
                 if (strcmp(senha_decodificada, senha_pura) == 0) {
                     sprintf(senhas_quebradas[qtd_quebradas++], "%s:%s", usuario, senha_pura);
