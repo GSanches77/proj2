@@ -9,6 +9,7 @@
 #define QTD_PALAVRAS 24
 #define TAM_COD 150
 #define QTD_SENHAS 23
+#define MAX_COMBINACOES 1000000 // Número máximo de combinações permitidas
 
 void carregar_palavras(char palavras[][TAM_PALAVRA + 1], const char *nome_arquivo) {
     FILE *arquivo = fopen(nome_arquivo, "r");
@@ -58,13 +59,24 @@ void decodificar_senhas(char senhas_codificadas[][TAM_COD + 1], char senhas_deco
     }
 }
 
-void gerar_combinacoes(char palavras[][TAM_PALAVRA + 1], int qtd_palavras, char combinacoes[][TAM_COD + 1], int *qtd_combinacoes) {
+char **gerar_combinacoes(char palavras[][TAM_PALAVRA + 1], int qtd_palavras, int *qtd_combinacoes) {
     *qtd_combinacoes = 0;
+    char **combinacoes = malloc(MAX_COMBINACOES * sizeof(char *));
+    if (combinacoes == NULL) {
+        printf("Erro ao alocar memória para combinações.\n");
+        exit(1);
+    }
+
     for (int p1 = 0; p1 < qtd_palavras; p1++) {
         for (int p2 = -1; p2 < qtd_palavras; p2++) {
             for (int p3 = -1; p3 < qtd_palavras; p3++) {
                 for (int p4 = -1; p4 < qtd_palavras; p4++) {
                     for (int p5 = -1; p5 < qtd_palavras; p5++) {
+                        if (*qtd_combinacoes >= MAX_COMBINACOES) {
+                            printf("Número máximo de combinações atingido.\n");
+                            return combinacoes;
+                        }
+
                         char combinacao[TAM_COD] = "";
                         strcat(combinacao, palavras[p1]);
                         if (p2 != -1) strcat(strcat(combinacao, " "), palavras[p2]);
@@ -72,6 +84,11 @@ void gerar_combinacoes(char palavras[][TAM_PALAVRA + 1], int qtd_palavras, char 
                         if (p4 != -1) strcat(strcat(combinacao, " "), palavras[p4]);
                         if (p5 != -1) strcat(strcat(combinacao, " "), palavras[p5]);
 
+                        combinacoes[*qtd_combinacoes] = malloc(strlen(combinacao) + 1);
+                        if (combinacoes[*qtd_combinacoes] == NULL) {
+                            printf("Erro ao alocar memória para combinação.\n");
+                            exit(1);
+                        }
                         strcpy(combinacoes[*qtd_combinacoes], combinacao);
                         (*qtd_combinacoes)++;
                     }
@@ -79,9 +96,11 @@ void gerar_combinacoes(char palavras[][TAM_PALAVRA + 1], int qtd_palavras, char 
             }
         }
     }
+
+    return combinacoes;
 }
 
-void comparar_senhas(char senhas_decodificadas[][TAM_COD + 1], char combinacoes[][TAM_COD + 1], int qtd_combinacoes, 
+void comparar_senhas(char senhas_decodificadas[][TAM_COD + 1], char **combinacoes, int qtd_combinacoes, 
                      char usuarios[][TAM_PALAVRA + 1], int qtd_senhas, 
                      char quebradas[][TAM_COD + 1], char nao_quebradas[][TAM_COD + 1], int *qtd_quebradas, int *qtd_nao_quebradas) {
     *qtd_quebradas = 0;
@@ -120,7 +139,6 @@ int main() {
     char senhas_codificadas[QTD_SENHAS][TAM_COD + 1];
     char senhas_decodificadas[QTD_SENHAS][TAM_COD + 1];
     char usuarios[QTD_SENHAS][TAM_PALAVRA + 1];
-    char combinacoes[100000][TAM_COD + 1];
     char quebradas[QTD_SENHAS][TAM_COD + 1], nao_quebradas[QTD_SENHAS][TAM_COD + 1];
 
     int qtd_combinacoes, qtd_quebradas, qtd_nao_quebradas;
@@ -128,11 +146,17 @@ int main() {
     carregar_palavras(palavras, "palavras.txt");
     carregar_codificadas(senhas_codificadas, "usuarios_senhascodificadas.txt");
     decodificar_senhas(senhas_codificadas, senhas_decodificadas, QTD_SENHAS);
-    gerar_combinacoes(palavras, QTD_PALAVRAS, combinacoes, &qtd_combinacoes);
+    char **combinacoes = gerar_combinacoes(palavras, QTD_PALAVRAS, &qtd_combinacoes);
     comparar_senhas(senhas_decodificadas, combinacoes, qtd_combinacoes, usuarios, QTD_SENHAS, quebradas, nao_quebradas, &qtd_quebradas, &qtd_nao_quebradas);
 
     salvar_resultados("senhas_quebradas.txt", quebradas, qtd_quebradas);
     salvar_resultados("senhas_nao_quebradas.txt", nao_quebradas, qtd_nao_quebradas);
+
+    // Liberar memória alocada dinamicamente
+    for (int i = 0; i < qtd_combinacoes; i++) {
+        free(combinacoes[i]);
+    }
+    free(combinacoes);
 
     return 0;
 }
