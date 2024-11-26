@@ -46,41 +46,6 @@ int Base64Encode(const unsigned char *buffer, size_t length, char **b64text) {
     return 0;
 }
 
-void carregar_codificadas(char senhas_codificadas[][TAM_COD + 1], const char *nome_arquivo) {
-    FILE *arquivo = fopen(nome_arquivo, "r");
-    if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo de senhas codificadas.\n");
-        exit(1);
-    }
-    for (int i = 0; i < QTD_SENHAS; i++) {
-        if (fgets(senhas_codificadas[i], TAM_COD, arquivo)) {
-            senhas_codificadas[i][strcspn(senhas_codificadas[i], "\n")] = '\0'; 
-        }
-    }
-    fclose(arquivo);
-}
-
-void remover_nome(char *linha, char *usuario, char *senha) {
-    char *p = strchr(linha, ':');
-    if (p != NULL) {
-        strncpy(usuario, linha, p - linha);
-        usuario[p - linha] = '\0';
-        strcpy(senha, p + 1);
-    }
-}
-
-void salvar_resultados(const char *arquivo, char resultados[][TAM_COD + 1], int qtd) {
-    FILE *file = fopen(arquivo, "w");
-    if (file == NULL) {
-        printf("Erro ao criar o arquivo %s\n", arquivo);
-        exit(1);
-    }
-    for (int i = 0; i < qtd; i++) {
-        fprintf(file, "%s\n", resultados[i]);
-    }
-    fclose(file);
-}
-
 void codificar_combinacao(const char *combinacao, char *saida) {
     unsigned char hash[SHA512_DIGEST_LENGTH];
     SHA512_CTX sha_context;
@@ -95,46 +60,65 @@ void codificar_combinacao(const char *combinacao, char *saida) {
     free(b64text);
 }
 
+void carregar_codificadas(char senhas_codificadas[][TAM_COD + 1], const char *nome_arquivo) {
+    FILE *arquivo = fopen(nome_arquivo, "r");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo de senhas codificadas.\n");
+        exit(1);
+    }
+    for (int i = 0; i < QTD_SENHAS; i++) {
+        if (fgets(senhas_codificadas[i], TAM_COD, arquivo)) {
+            senhas_codificadas[i][strcspn(senhas_codificadas[i], "\n")] = '\0';
+        }
+    }
+    fclose(arquivo);
+}
+
+void remover_nome(char *linha, char *usuario, char *senha) {
+    char *p = strchr(linha, ':');
+    if (p != NULL) {
+        strncpy(usuario, linha, p - linha);
+        usuario[p - linha] = '\0';
+        strcpy(senha, p + 1);
+    }
+}
+
+void gerar_combinacoes(int nivel, char palavras[][TAM_PALAVRA + 1], char *saida) {
+    if (nivel == 1) {
+        sprintf(saida, "%s", palavras[0]);
+    } else {
+        sprintf(saida, "%s %s", palavras[0], palavras[1]);
+    }
+}
+
 int main() {
     char palavras[QTD_PALAVRAS][TAM_PALAVRA + 1];
     char senhas_codificadas[QTD_SENHAS][TAM_COD + 1];
-    char senhas_quebradas[QTD_SENHAS][TAM_COD + 1];
-    char senhas_nao_quebradas[QTD_SENHAS][TAM_COD + 1];
-
-    int qtd_quebradas = 0, qtd_nao_quebradas = 0;
+    char usuario[TAM_PALAVRA + 1], senha_codificada[TAM_COD + 1], senha_pura[TAM_COD + 1];
 
     carregar_palavras(palavras, "palavras.txt");
     carregar_codificadas(senhas_codificadas, "usuarios_senhascodificadas.txt");
 
     for (int i = 0; i < QTD_SENHAS; i++) {
-        char usuario[TAM_PALAVRA + 1], senha_codificada[TAM_COD + 1], senha_pura[TAM_COD + 1];
         remover_nome(senhas_codificadas[i], usuario, senha_codificada);
 
-        int encontrada = 0;
-        for (int p1 = 0; p1 < QTD_PALAVRAS && !encontrada; p1++) {
-            for (int p2 = -1; p2 < QTD_PALAVRAS && !encontrada; p2++) {
+        for (int p1 = 0; p1 < QTD_PALAVRAS; p1++) {
+            for (int p2 = -1; p2 < QTD_PALAVRAS; p2++) {
                 if (p2 == -1) {
                     sprintf(senha_pura, "%s", palavras[p1]);
                 } else {
                     sprintf(senha_pura, "%s %s", palavras[p1], palavras[p2]);
                 }
+
                 char senha_codificada_tentativa[TAM_COD + 1];
                 codificar_combinacao(senha_pura, senha_codificada_tentativa);
 
                 if (strcmp(senha_codificada, senha_codificada_tentativa) == 0) {
-                    sprintf(senhas_quebradas[qtd_quebradas++], "%s:%s", usuario, senha_pura);
-                    encontrada = 1;
+                    printf("Senha quebrada para %s: %s\n", usuario, senha_pura);
                 }
             }
         }
-
-        if (!encontrada) {
-            sprintf(senhas_nao_quebradas[qtd_nao_quebradas++], "%s:%s", usuario, senha_codificada);
-        }
     }
-
-    salvar_resultados("senhas_quebradas.txt", senhas_quebradas, qtd_quebradas);
-    salvar_resultados("senhas_nao_quebradas.txt", senhas_nao_quebradas, qtd_nao_quebradas);
 
     return 0;
 }
