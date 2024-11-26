@@ -1,3 +1,6 @@
+//gcc main.c -o main -lcrypto -lssl -I/usr/include/openssl -L/usr/lib/x86_64-linux-gnu
+//./main
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,19 +51,26 @@ void remover_nome(char *linha, char *usuario, char *senha) {
     }
 }
 
-void Base64Decode(const char *b64message, char *buffer, size_t *length) {
-    BIO *bio, *b64;
+int Base64Encode(const unsigned char* buffer, size_t length, char** b64text) { //Encodes a binary safe base 64 string
+	BIO *bio, *b64;
+	BUF_MEM *bufferPtr;
 
-    bio = BIO_new_mem_buf((void *)b64message, -1);
-    b64 = BIO_new(BIO_f_base64());
-    bio = BIO_push(b64, bio);
+	b64 = BIO_new(BIO_f_base64());
+	bio = BIO_new(BIO_s_mem());
+	bio = BIO_push(b64, bio);
 
-    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
-    *length = BIO_read(bio, buffer, strlen(b64message));
-    buffer[*length] = '\0';
+	BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Ignore newlines - write everything in one line
+	BIO_write(bio, buffer, length);
+	BIO_flush(bio);
+	BIO_get_mem_ptr(bio, &bufferPtr);
+	BIO_set_close(bio, BIO_NOCLOSE);
+	BIO_free_all(bio);
 
-    BIO_free_all(bio);
+	*b64text=(*bufferPtr).data;
+
+	return (0); //success
 }
+
 
 void salvar_resultados(const char *arquivo, char resultados[][TAM_COD + 1], int qtd) {
     FILE *file = fopen(arquivo, "w");
@@ -91,8 +101,21 @@ int main() {
         remover_nome(senhas_codificadas[i], usuario, senha_codificada);
 
         // Decodificar a senha
-        Base64Decode(senha_codificada, senha_decodificada, &length);
-        printf("Senha decodificada para %s: %s\n", usuario, senha_decodificada); // Exibe a senha decodificada
+        SHA512_CTX ctx;
+        unsigned char buffer[512];
+
+        char *str = "torta pizza sorvete";
+        int len = strlen(str);
+        strcpy(buffer, str);
+        SHA512_Init(&ctx);
+        SHA512_Update(&ctx, buffer, len);
+        SHA512_Final(buffer, &ctx);
+        // fwrite(&buffer, 64, 1, stdout);
+
+        char *base64encoded;
+        Base64Encode(buffer, 64, &base64encoded);
+        printf("Senha codificada: %s\n", base64encoded);
+        printf("Senha decodificada para %s: %s\n", usuario, buffer); // Exibe a senha decodificada
 
         // Gerar combinações e comparar
         int encontrada = 0;
